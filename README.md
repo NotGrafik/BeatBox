@@ -40,16 +40,16 @@ cd beatbox-soundboard
 
 2. **Ouvrir le projet dans Qt Creator** :
    
-  - Fichier → Ouvrir un projet
+    - Fichier → Ouvrir un projet
 
-  - Sélectionner le fichier CMakeLists.txt
+    - Sélectionner le fichier CMakeLists.txt
 
 3. **Configurer le build** :
 
-  - Sélectionner un kit compatible (MinGW, MSVC, Clang, etc.)
+    - Sélectionner un kit compatible (MinGW, MSVC, Clang, etc.)
 
-  - Vérifier les modules Qt installés
+    - Vérifier les modules Qt installés
 
 4. **Compiler et exécuter** :
 
-  - Cliquer sur "Run" (Ctrl+R) ou compiler avec Ctrl+B
+    - Cliquer sur "Run" (Ctrl+R) ou compiler avec Ctrl+B
