@@ -25,6 +25,7 @@ private slots:
     void playPadSound(int index);
     void uploadSound(int index, const QString& path);
     void hideModeButtons();
+    void showModeButtons();
 
 private:
     QPushButton *soloButton;
@@ -33,6 +34,8 @@ private:
     QPushButton *startSessionButton;
     QLabel *sessionCodeLabel;
     QLineEdit *joinCodeInput;
+    QPushButton *joinSubmitButton;
+    QPushButton *backButtonJoin;
 
     PadPage *padPage;
     SoundManager soundManager;

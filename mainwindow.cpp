@@ -31,6 +31,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     layout->addWidget(joinCodeInput);
     layout->addWidget(startSessionButton);
 
+    joinSubmitButton = new QPushButton("Rejoindre");
+    joinSubmitButton->hide();
+    backButtonJoin = new QPushButton("Retour");
+    backButtonJoin->hide();
+
+    layout->addWidget(joinSubmitButton);
+    layout->addWidget(backButtonJoin);
+
     padPage = new PadPage;
     layout->addWidget(padPage);
     padPage->hide();
@@ -42,6 +50,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
     connect(padPage, &PadPage::padClicked, this, &MainWindow::playPadSound);
     connect(padPage, &PadPage::uploadSoundRequested, this, &MainWindow::uploadSound);
+
+    connect(joinSubmitButton, &QPushButton::clicked, this, &MainWindow::attemptJoinSession);
+    connect(backButtonJoin, &QPushButton::clicked, this, [this]() {
+        joinCodeInput->hide();
+        joinSubmitButton->hide();
+        backButtonJoin->hide();
+        showModeButtons();
+    });
 
     setCentralWidget(central);
 }
@@ -67,8 +83,12 @@ void MainWindow::handleHostMode() {
 
 void MainWindow::handleJoinMode() {
     hideModeButtons();
-    joinCodeInput->show();
     connect(joinCodeInput, &QLineEdit::returnPressed, this, &MainWindow::attemptJoinSession);
+    joinCodeInput->clear();
+    joinCodeInput->show();
+    joinSubmitButton->show();
+    backButtonJoin->show();
+
 }
 
 void MainWindow::startNetworkSession() {
@@ -100,11 +120,18 @@ void MainWindow::playPadSound(int index) {
 void MainWindow::uploadSound(int index, const QString &path) {
     qDebug() << "Upload sound for pad" << index << ":" << path;
     padPage->setPadLabel(index, QFileInfo(path).fileName());
-    soundManager.importSound(path); 
+    soundManager.importSound(path);
 }
 
 void MainWindow::hideModeButtons() {
     soloButton->hide();
     hostButton->hide();
     joinButton->hide();
+}
+
+
+void MainWindow::showModeButtons() {
+    soloButton->show();
+    hostButton->show();
+    joinButton->show();
 }
