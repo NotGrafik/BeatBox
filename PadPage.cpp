@@ -9,6 +9,8 @@
 #include <QDir>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QTimer>
+#include <QStandardPaths>
 
 PadPage::PadPage(QWidget *parent) : QWidget(parent) {
     QGridLayout *grid = new QGridLayout(this);
@@ -44,6 +46,10 @@ PadPage::PadPage(QWidget *parent) : QWidget(parent) {
         int col = i % colCount;
         grid->addLayout(subLayout, row, col);
     }
+
+    uploadTimer = new QTimer(this);
+    uploadTimer->setSingleShot(true);
+    connect(uploadTimer, &QTimer::timeout, this, &PadPage::handleUploadTimeout);
 }
 
 void PadPage::handlePadClick(int index) {
@@ -61,16 +67,25 @@ void PadPage::handleUpload(int index) {
     if (!filePath.isEmpty()) {
         QString fileName = QFileInfo(filePath).fileName();
         QFile file(filePath);
-        file.open(QIODevice::ReadOnly);
-        QByteArray base64 = file.readAll().toBase64();
+        
+        if (!file.open(QIODevice::ReadOnly)) {
+            setPadLabel(index, "File Error");
+            return;
+        }
 
         setPadLabel(index, "Loading...");
+        uploadTimer->start(10000); // 10 secondes timeout
 
+        QByteArray fileData = file.readAll();
+        file.close();
+
+        // Envoyer en base64
         QJsonObject obj;
         obj["type"] = "upload";
         obj["index"] = index;
         obj["name"] = fileName;
-        obj["data"] = QString::fromUtf8(base64);
+        obj["data"] = QString::fromUtf8(fileData.toBase64());
+        obj["size"] = fileData.size();
 
         QJsonDocument doc(obj);
         emit sendToNetwork(doc.toJson(QJsonDocument::Compact) + "\n");
@@ -88,5 +103,6 @@ void PadPage::setPadLabel(int index, const QString &label) {
 }
 
 void PadPage::onSoundReady(int index, const QString& name) {
+    uploadTimer->stop();
     setPadLabel(index, name);
 }

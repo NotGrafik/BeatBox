@@ -6,6 +6,7 @@
 #include <QList>
 #include <QFileDialog>
 #include <QToolButton>
+#include <QTimer>
 
 
 class PadPage : public QWidget {
@@ -19,6 +20,7 @@ signals:
     void padClicked(int index);
     void sendToNetwork(const QString& message);
     void uploadSoundRequested(int index, const QString& filePath);
+    void handleUploadTimeout();
 
 public slots:
     void onSoundReady(int index, const QString& name);
@@ -30,5 +32,6 @@ private slots:
 private:
     QList<QToolButton*> padButtons;
     QList<QPushButton*> uploadButtons;
+     QTimer* uploadTimer;
 };
 
