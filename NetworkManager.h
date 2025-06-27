@@ -1,5 +1,6 @@
 #ifndef NETWORKMANAGER_H
 #define NETWORKMANAGER_H
+#include "SoundManager.h"
 
 #include <QObject>
 
@@ -31,6 +32,8 @@ signals:
     void sessionStarted();
     void joinedSession();
     void connectionError(const QString &error);
+    void soundReady(int index, const QString &name);
+    void remotePlay(int index);
 
 private slots:
     void onClientJoined(const QString &name);
@@ -38,10 +41,13 @@ private slots:
     void onJoinedSuccessfully();
     void onSessionStarted();
     void onConnectionError(const QString &error);
+    void onSyncSound(int index, const QString& path, const QString& name);
+    void onRemotePlay(int index);
 
 private:
     HostSession *hostSession;
     JoinSession *joinSessionClient;
+    SoundManager* soundManager;
 };
 
 #endif

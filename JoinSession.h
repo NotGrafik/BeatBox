@@ -15,6 +15,8 @@ signals:
     void sessionStarted();
     void connectionError(const QString &error);
     void joinedSuccessfully();
+    void syncSound(int index, const QString& path, const QString& name);
+    void remotePlay(int index);
 
 private slots:
     void handleReadyRead();

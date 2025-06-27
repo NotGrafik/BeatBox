@@ -4,7 +4,11 @@
 #include <QSizePolicy>
 #include <QToolButton>
 #include <QCoreApplication>
-
+#include <QFileDialog>
+#include <QFile>
+#include <QDir>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 PadPage::PadPage(QWidget *parent) : QWidget(parent) {
     QGridLayout *grid = new QGridLayout(this);
@@ -26,11 +30,6 @@ PadPage::PadPage(QWidget *parent) : QWidget(parent) {
         pad->setFixedSize(300, 340);
         pad->setStyleSheet("border: none; font-size: 24px;");
 
-
-        if (padIcon.isNull()) {
-            qDebug() << "Icon failed to load!";
-        }
-
         padButtons.append(pad);
         uploadButtons.append(upload);
 
@@ -49,18 +48,32 @@ PadPage::PadPage(QWidget *parent) : QWidget(parent) {
 
 void PadPage::handlePadClick(int index) {
     emit padClicked(index);
+
+    QJsonObject obj;
+    obj["type"] = "play";
+    obj["index"] = index;
+    QJsonDocument doc(obj);
+    emit sendToNetwork(doc.toJson(QJsonDocument::Compact) + "\n");
 }
 
 void PadPage::handleUpload(int index) {
     QString filePath = QFileDialog::getOpenFileName(this, "Choose a sound file");
     if (!filePath.isEmpty()) {
         QString fileName = QFileInfo(filePath).fileName();
-        QString destPath = QCoreApplication::applicationDirPath() + "/uploads/" + fileName;
+        QFile file(filePath);
+        file.open(QIODevice::ReadOnly);
+        QByteArray base64 = file.readAll().toBase64();
 
-        QDir().mkpath(QCoreApplication::applicationDirPath() + "/uploads"); // Crée le dossier si nécessaire
-        QFile::copy(filePath, destPath);
+        setPadLabel(index, "Loading...");
 
-        emit uploadSoundRequested(index, destPath);
+        QJsonObject obj;
+        obj["type"] = "upload";
+        obj["index"] = index;
+        obj["name"] = fileName;
+        obj["data"] = QString::fromUtf8(base64);
+
+        QJsonDocument doc(obj);
+        emit sendToNetwork(doc.toJson(QJsonDocument::Compact) + "\n");
     }
 }
 
@@ -68,9 +81,12 @@ void PadPage::setPadLabel(int index, const QString &label) {
     if (index >= 0 && index < padButtons.size()) {
         QString displayLabel = label;
         if (displayLabel.endsWith(".wav", Qt::CaseInsensitive)) {
-            displayLabel.chop(4); // Remove last 4 characters (".wav")
+            displayLabel.chop(4);
         }
         static_cast<QToolButton*>(padButtons[index])->setText(displayLabel);
     }
 }
 
+void PadPage::onSoundReady(int index, const QString& name) {
+    setPadLabel(index, name);
+}

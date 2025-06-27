@@ -4,8 +4,10 @@
 #include <QDebug>
 
 NetworkManager::NetworkManager(QObject *parent)
-    : QObject(parent), hostSession(nullptr), joinSessionClient(nullptr) {
+
+    : QObject(parent), hostSession(nullptr), joinSessionClient(nullptr), soundManager(new SoundManager(this)) {
 }
+
 
 NetworkManager::~NetworkManager() {
     if (hostSession) {
@@ -50,6 +52,7 @@ void NetworkManager::joinSession(const QString &code) {
     connect(joinSessionClient, &JoinSession::joinedSuccessfully, this, &NetworkManager::onJoinedSuccessfully);
     connect(joinSessionClient, &JoinSession::sessionStarted, this, &NetworkManager::onSessionStarted);
     connect(joinSessionClient, &JoinSession::connectionError, this, &NetworkManager::onConnectionError);
+    connect(joinSessionClient, &JoinSession::syncSound, this, &NetworkManager::onSyncSound);
     
     joinSessionClient->start();
 }
@@ -83,4 +86,13 @@ void NetworkManager::onSessionStarted() {
 void NetworkManager::onConnectionError(const QString &error) {
     qDebug() << "NetworkManager: Connection error -" << error;
     emit connectionError(error);
+}
+
+void NetworkManager::onSyncSound(int index, const QString& path, const QString& name) {
+    soundManager->importSound(path);
+    emit soundReady(index, name); // Connecté à PadPage::onSoundReady
+}
+
+void NetworkManager::onRemotePlay(int index) {
+    soundManager->playSound(index);
 }

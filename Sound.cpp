@@ -2,7 +2,6 @@
 #include <QSoundEffect>
 #include <QDebug>
 
-
 Sound::Sound(const QString& name, const QString& path) : name(name), filePath(path) {
     player = new QSoundEffect;
     player->setSource(QUrl::fromLocalFile(path));
@@ -16,5 +15,3 @@ void Sound::play() {
     player->setVolume(1.0); 
     player->play();
 }
-
-

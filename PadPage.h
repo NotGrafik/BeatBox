@@ -17,7 +17,11 @@ public:
 
 signals:
     void padClicked(int index);
+    void sendToNetwork(const QString& message);
     void uploadSoundRequested(int index, const QString& filePath);
+
+public slots:
+    void onSoundReady(int index, const QString& name);
 
 private slots:
     void handlePadClick(int index);

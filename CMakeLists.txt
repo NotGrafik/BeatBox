@@ -7,6 +7,8 @@ find_package(Qt6 REQUIRED COMPONENTS Core Widgets Multimedia Network)
 
 qt_standard_project_setup()
 
+qt_add_resources(RESOURCES resources.qrc)
+
 add_executable(SoundBoard
     main.cpp
     MainWindow.cpp
@@ -23,11 +25,7 @@ add_executable(SoundBoard
     HostSession.h
     JoinSession.cpp
     JoinSession.h
+    ${RESOURCES}
 )
 
-qt_add_resources(RESOURCES resources.qrc)
-target_sources(SoundBoard PRIVATE ${RESOURCES})
-
-
 target_link_libraries(SoundBoard PRIVATE Qt6::Core Qt6::Widgets Qt6::Multimedia Qt6::Network)
-

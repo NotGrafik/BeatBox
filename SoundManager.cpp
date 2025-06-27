@@ -1,6 +1,11 @@
 #include "SoundManager.h"
 #include <QFileInfo>
 
+SoundManager::SoundManager(QObject* parent) : QObject(parent) {}
+SoundManager::~SoundManager() {
+    qDeleteAll(sounds);
+    sounds.clear();
+}
 
 void SoundManager::importSound(const QString &filePath) {
     QFileInfo info(filePath);
@@ -20,4 +25,3 @@ void SoundManager::playSound(int index) {
         sounds[index]->play();
     }
 }
-

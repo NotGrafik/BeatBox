@@ -1,14 +1,22 @@
-#pragma once
+#ifndef SOUNDMANAGER_H
+#define SOUNDMANAGER_H
 
-#include <QList>
+#include <QObject>
+#include <QVector>
 #include "Sound.h"
 
-class SoundManager {
-public:
-    QList<Sound*> sounds;
+class SoundManager : public QObject {
+    Q_OBJECT
 
-    void importSound(const QString& filePath);
+public:
+    explicit SoundManager(QObject* parent = nullptr);
+    void importSound(const QString &filePath);
     void removeSound(int index);
     void playSound(int index);
+    ~SoundManager();
+
+private:
+    QVector<Sound*> sounds;
 };
 
+#endif // SOUNDMANAGER_H
