@@ -131,20 +131,3 @@ void HostSession::startSession() {
     }
     emit sessionReady();
 }
-
-void HostSession::syncSoundToClients(int index, const QString &path, const QString &name) {
-    QJsonObject obj;
-    obj["type"] = "syncSound";
-    obj["index"] = index;
-    obj["path"] = path;
-    obj["name"] = name;
-
-    QJsonDocument doc(obj);
-    QByteArray msg = doc.toJson(QJsonDocument::Compact) + "\n";
-
-    for (QTcpSocket* c : clients) {
-        if (c->state() == QAbstractSocket::ConnectedState) {
-            c->write(msg);
-        }
-    }
-}
