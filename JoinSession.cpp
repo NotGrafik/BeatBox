@@ -14,7 +14,7 @@ JoinSession::JoinSession(const QString &code, QObject *parent)
 
 void JoinSession::start() {
     qDebug() << "Attempting to connect to host with code:" << sessionCode;
-    socket.connectToHost("127.0.0.1", 4242);
+    socket.connectToHost("172.20.10.5", 4242);
 }
 
 void JoinSession::handleConnected() {
