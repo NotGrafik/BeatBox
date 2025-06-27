@@ -2,6 +2,7 @@
 #include "HostSession.h"
 #include "JoinSession.h"
 #include <QDebug>
+#include <QFileInfo>
 
 NetworkManager::NetworkManager(QObject *parent)
 
@@ -90,7 +91,13 @@ void NetworkManager::onConnectionError(const QString &error) {
 
 void NetworkManager::onSyncSound(int index, const QString& path, const QString& name) {
     soundManager->importSound(path);
-    emit soundReady(index, name); // Connecté à PadPage::onSoundReady
+    if (hostSession) {
+        int index = soundManager->getSoundCount() - 1;
+        QFileInfo info(path);
+        QString name = info.fileName();
+        hostSession->syncSoundToClients(index, path, name);
+    }
+    emit soundReady(index, name);
 }
 
 void NetworkManager::onRemotePlay(int index) {

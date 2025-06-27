@@ -25,3 +25,7 @@ void SoundManager::playSound(int index) {
         sounds[index]->play();
     }
 }
+
+int SoundManager::getSoundCount() const {
+    return sounds.size();
+}

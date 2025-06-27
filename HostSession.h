@@ -16,6 +16,8 @@ public:
     void start();
     void startSession();
 
+    void syncSoundToClients(int index, const QString &path, const QString &name);
+
 signals:
     void clientJoined(const QString &name);
     void sessionReady();

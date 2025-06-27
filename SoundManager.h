@@ -15,6 +15,8 @@ public:
     void playSound(int index);
     ~SoundManager();
 
+    int getSoundCount() const;
+
 private:
     QVector<Sound*> sounds;
 };
