@@ -6,17 +6,19 @@
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QList>
+#include "SoundManager.h"
 
 class HostSession : public QObject {
     Q_OBJECT
 
 public:
-    explicit HostSession(QObject *parent = nullptr);
+    explicit HostSession(SoundManager* soundManager, QObject *parent = nullptr);
     QString getSessionCode() const;
     void start();
     void startSession();
 
-    void syncSoundToClients(int index, const QString &path, const QString &name);
+    void syncSoundToClients(const QString &path, const QString &name);
+    void handleFileUpload(QTcpSocket* client, const QByteArray& data);
 
 signals:
     void clientJoined(const QString &name);
@@ -32,6 +34,7 @@ private:
     QTcpServer server;
     QList<QTcpSocket*> clients;
     QString sessionCode;
+    SoundManager* soundManager;
 };
 
 #endif

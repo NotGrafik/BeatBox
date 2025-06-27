@@ -26,7 +26,7 @@ void NetworkManager::startHosting() {
         delete hostSession;
     }
     
-    hostSession = new HostSession(this);
+    hostSession = new HostSession(soundManager, this);
     connect(hostSession, &HostSession::clientJoined, this, &NetworkManager::onClientJoined);
     connect(hostSession, &HostSession::sessionReady, this, &NetworkManager::onSessionReady);
     
@@ -95,7 +95,7 @@ void NetworkManager::onSyncSound(int index, const QString& path, const QString& 
         int index = soundManager->getSoundCount() - 1;
         QFileInfo info(path);
         QString name = info.fileName();
-        hostSession->syncSoundToClients(index, path, name);
+        hostSession->syncSoundToClients(path, name);
     }
     emit soundReady(index, name);
 }

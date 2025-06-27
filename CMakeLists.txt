@@ -5,8 +5,9 @@ set(CMAKE_CXX_STANDARD 17)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets Multimedia Network)
 
-qt_standard_project_setup()
+include_directories(${Qt6Core_INCLUDE_DIRS} ${Qt6Network_INCLUDE_DIRS})
 
+qt_standard_project_setup()
 qt_add_resources(RESOURCES resources.qrc)
 
 add_executable(SoundBoard
@@ -28,4 +29,11 @@ add_executable(SoundBoard
     ${RESOURCES}
 )
 
-target_link_libraries(SoundBoard PRIVATE Qt6::Core Qt6::Widgets Qt6::Multimedia Qt6::Network)
+target_link_libraries(SoundBoard PRIVATE 
+    Qt6::Core 
+    Qt6::Widgets 
+    Qt6::Multimedia 
+    Qt6::Network
+)
+
+target_compile_definitions(SoundBoard PRIVATE QT_CORE_LIB QT_NETWORK_LIB)

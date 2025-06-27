@@ -5,14 +5,24 @@
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
+#include <QFile>           // Pour QFile
+#include <QFileInfo>
+#include <QTimer>
+#include <QStandardPaths>  // Pour QStandardPaths
+#include <QDir>            // Pour QDir
+#include <QCoreApplication> 
 
 JoinSession::JoinSession(const QString &code, QObject *parent) 
-    : QObject(parent), sessionCode(code) {
+    : QObject(parent), sessionCode(code), uploadConfirmed(false) {
     connect(&socket, &QTcpSocket::readyRead, this, &JoinSession::handleReadyRead);
     connect(&socket, &QTcpSocket::connected, this, &JoinSession::handleConnected);
     connect(&socket, &QTcpSocket::disconnected, this, &JoinSession::handleDisconnected);
     connect(&socket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::errorOccurred),
             this, &JoinSession::handleError);
+
+    uploadTimer = new QTimer(this);
+    uploadTimer->setSingleShot(true);
+    connect(uploadTimer, &QTimer::timeout, this, &JoinSession::handleUploadTimeout);
 }
 
 void JoinSession::start() {
@@ -76,16 +86,113 @@ void JoinSession::handleReadyRead() {
             QString errorMsg = obj["message"].toString();
             qDebug() << "Server error:" << errorMsg;
             emit connectionError(errorMsg);
+        } else if (type == "uploadComplete") {
+            uploadTimer->stop();
+            uploadConfirmed = true;
+            emit uploadComplete();
+            qDebug() << "Upload completed successfully!";
+        } else if (type == "syncSound") {
+            int index = obj["index"].toInt();
+            QString name = obj["name"].toString();
+            qint64 fileSize = obj["size"].toInt();
+            
+            // Créer un répertoire pour stocker les sons
+            QString saveDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/sounds/";
+            QDir dir;
+            if (!dir.exists(saveDir)) {
+                dir.mkpath(saveDir);
+            }
+            
+            // Lire les données du fichier
+            QByteArray fileData;
+            while (fileData.size() < fileSize) {
+                if (!socket.waitForReadyRead(5000)) {
+                    qDebug() << "Timeout while waiting for file data";
+                    return;
+                }
+                fileData.append(socket.read(fileSize - fileData.size()));
+            }
+            
+            // Sauvegarder le fichier
+            QString filePath = saveDir + name;
+            QFile file(filePath);
+            if (file.open(QIODevice::WriteOnly)) {
+                if (file.write(fileData) == fileData.size()) {
+                    file.close();
+                    qDebug() << "Sound file saved successfully:" << filePath;
+                    emit syncSound(index, filePath, name);
+                } else {
+                    qDebug() << "Failed to write sound file:" << file.errorString();
+                }
+            } else {
+                qDebug() << "Failed to open file for writing:" << file.errorString();
+            }
         }
     }
 }
 
 void JoinSession::handleDisconnected() {
     qDebug() << "Disconnected from host";
+    if (uploadTimer->isActive()) {
+        uploadTimer->stop();
+        emit uploadFailed("Disconnected during upload");
+    }
 }
 
 void JoinSession::handleError(QAbstractSocket::SocketError error) {
     QString errorString = socket.errorString();
     qDebug() << "Socket error:" << error << errorString;
+    if (uploadTimer->isActive()) {
+        uploadTimer->stop();
+        emit uploadFailed("Connection error: " + errorString);
+    }
     emit connectionError("Connection failed: " + errorString);
+}
+
+void JoinSession::uploadSound(const QString &filePath) {
+    uploadTimer->stop(); // Arrêter le timer s'il était actif
+    uploadConfirmed = false;
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        emit uploadFailed("Cannot open file");
+        return;
+    }
+    
+    QByteArray fileData = file.readAll();
+    file.close();
+    
+    QFileInfo info(filePath);
+    QString fileName = info.fileName();
+    
+    QJsonObject obj;
+    obj["type"] = "upload";
+    obj["name"] = fileName;
+    obj["size"] = fileData.size();
+    
+    QByteArray header = QJsonDocument(obj).toJson(QJsonDocument::Compact) + "\n";
+    
+    if (socket.state() == QTcpSocket::ConnectedState) {
+        if (socket.write(header) == -1 || socket.write(fileData) == -1) {
+            emit uploadFailed("Failed to send data");
+            return;
+        }
+        if (!socket.flush()) {
+            emit uploadFailed("Failed to flush data");
+            return;
+        }
+        
+        uploadTimer->start(10000); // 10 secondes timeout
+        qDebug() << "Upload started, timeout timer running...";
+    } else {
+        emit uploadFailed("Not connected to host");
+    }
+}
+
+void JoinSession::handleUploadTimeout() {
+    if (!uploadConfirmed) {
+        qDebug() << "Upload timed out!";
+        emit uploadFailed("Upload timed out");
+        // Vous pourriez vouloir déconnecter ou réinitialiser la connexion ici
+    }
 }
