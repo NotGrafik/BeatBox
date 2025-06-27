@@ -1,21 +1,30 @@
-#pragma once
-#include <QTcpSocket>
+#ifndef JOINSESSION_H
+#define JOINSESSION_H
+
 #include <QObject>
+#include <QTcpSocket>
 
 class JoinSession : public QObject {
     Q_OBJECT
+
 public:
-    JoinSession(const QString &code, QObject *parent = nullptr);
+    explicit JoinSession(const QString &code, QObject *parent = nullptr);
     void start();
 
 signals:
     void sessionStarted();
-    void connectionError(QString reason);
+    void connectionError(const QString &error);
+    void joinedSuccessfully();
 
 private slots:
     void handleReadyRead();
+    void handleConnected();
+    void handleDisconnected();
+    void handleError(QAbstractSocket::SocketError error);
 
 private:
     QTcpSocket socket;
     QString sessionCode;
 };
+
+#endif 

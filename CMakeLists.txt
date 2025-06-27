@@ -11,6 +11,8 @@ add_executable(SoundBoard
     main.cpp
     MainWindow.cpp
     MainWindow.h
+    NetworkManager.cpp
+    NetworkManager.h
     PadPage.cpp
     PadPage.h
     Sound.cpp

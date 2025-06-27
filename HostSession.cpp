@@ -25,7 +25,7 @@ void HostSession::start() {
     if (!server.listen(QHostAddress::Any, 4242)) {
         qWarning() << "Server failed to start:" << server.errorString();
     } else {
-        qDebug() << "Session started on port" << server.serverPort();
+        qDebug() << "Session started on port" << server.serverPort() << "with code:" << sessionCode;
     }
 }
 
@@ -34,11 +34,13 @@ void HostSession::handleNewConnection() {
         QTcpSocket *excess = server.nextPendingConnection();
         excess->write("{\"type\":\"error\",\"message\":\"Session full\"}\n");
         excess->disconnectFromHost();
+        excess->deleteLater();
         return;
     }
 
     QTcpSocket *client = server.nextPendingConnection();
     connect(client, &QTcpSocket::readyRead, this, &HostSession::readClientData);
+    connect(client, &QTcpSocket::disconnected, this, &HostSession::handleClientDisconnected);
     clients.append(client);
     qDebug() << "Client connected. Total:" << clients.size();
 }
@@ -54,8 +56,26 @@ void HostSession::readClientData() {
 
         QJsonObject obj = doc.object();
         if (obj["type"] == "join") {
-            emit clientJoined(obj["name"].toString());
+            QString clientName = obj["name"].toString();
+            qDebug() << "Client joined:" << clientName;
+            emit clientJoined(clientName);
+            
+            // Confirmer la connexion au client
+            QJsonObject response;
+            response["type"] = "joined";
+            response["message"] = "Successfully joined session";
+            QJsonDocument responseDoc(response);
+            client->write(responseDoc.toJson(QJsonDocument::Compact) + "\n");
         }
+    }
+}
+
+void HostSession::handleClientDisconnected() {
+    QTcpSocket *client = qobject_cast<QTcpSocket*>(sender());
+    if (client) {
+        clients.removeAll(client);
+        client->deleteLater();
+        qDebug() << "Client disconnected. Total:" << clients.size();
     }
 }
 
@@ -66,7 +86,9 @@ void HostSession::startSession() {
     QByteArray msg = doc.toJson(QJsonDocument::Compact) + "\n";
 
     for (QTcpSocket* c : clients) {
-        c->write(msg);
+        if (c->state() == QTcpSocket::ConnectedState) {
+            c->write(msg);
+        }
     }
     emit sessionReady();
 }
