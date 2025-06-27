@@ -2,6 +2,9 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QDebug>
+#include <QNetworkAccessManager>
+#include <QNetworkRequest>
+#include <QNetworkReply>
 
 JoinSession::JoinSession(const QString &code, QObject *parent) 
     : QObject(parent), sessionCode(code) {
@@ -14,14 +17,40 @@ JoinSession::JoinSession(const QString &code, QObject *parent)
 
 void JoinSession::start() {
     qDebug() << "Attempting to connect to host with code:" << sessionCode;
-    socket.connectToHost("172.20.10.5", 4242);
+
+    QUrl url("http://172.20.10.5:3000/resolve/" + sessionCode); // IP du serveur Node
+    QNetworkRequest request(url);
+
+    QNetworkAccessManager *manager = new QNetworkAccessManager(this);
+    QNetworkReply *reply = manager->get(request);
+
+    connect(reply, &QNetworkReply::finished, this, [=]() {
+        if (reply->error() != QNetworkReply::NoError) {
+            qDebug() << "Error resolving IP:" << reply->errorString();
+            emit connectionError("Cannot resolve host IP");
+            reply->deleteLater();
+            return;
+        }
+
+        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        QString ip = doc.object()["ip"].toString();
+        if (ip.isEmpty()) {
+            emit connectionError("Host IP not found");
+            reply->deleteLater();
+            return;
+        }
+
+        qDebug() << "Resolved host IP:" << ip;
+        socket.connectToHost(ip, 4242);
+        reply->deleteLater();
+    });
 }
 
 void JoinSession::handleConnected() {
     qDebug() << "Connected to host, sending join request...";
     QJsonObject obj;
     obj["type"] = "join";
-    obj["name"] = "Client_" + sessionCode; // Nom unique basé sur le code
+    obj["name"] = "Client_" + sessionCode;
     obj["code"] = sessionCode;
     QJsonDocument doc(obj);
     socket.write(doc.toJson(QJsonDocument::Compact) + "\n");

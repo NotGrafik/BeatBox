@@ -3,6 +3,10 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QDebug>
+#include <QNetworkInterface>
+#include <QNetworkAccessManager>
+#include <QNetworkRequest>
+#include <QNetworkReply>
 
 HostSession::HostSession(QObject *parent) : QObject(parent) {
     connect(&server, &QTcpServer::newConnection, this, &HostSession::handleNewConnection);
@@ -24,9 +28,45 @@ QString HostSession::generateCode() {
 void HostSession::start() {
     if (!server.listen(QHostAddress::Any, 4242)) {
         qWarning() << "Server failed to start:" << server.errorString();
-    } else {
-        qDebug() << "Session started on port" << server.serverPort() << "with code:" << sessionCode;
+        return;
     }
+
+    qDebug() << "Session started on port" << server.serverPort() << "with code:" << sessionCode;
+
+    // Récupérer l'IP locale
+    QString localIp;
+    foreach (const QHostAddress &address, QNetworkInterface::allAddresses()) {
+        if (address.protocol() == QAbstractSocket::IPv4Protocol && !address.isLoopback()) {
+            localIp = address.toString();
+            break;
+        }
+    }
+
+    if (localIp.isEmpty()) {
+        qWarning() << "Could not determine local IP.";
+        return;
+    }
+
+    // Envoyer IP + code au serveur Node
+    QUrl url("http://172.20.10.5:3000/register");  // Remplacer par l'IP du serveur Node
+    QNetworkRequest request(url);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QJsonObject obj;
+    obj["code"] = sessionCode;
+    obj["ip"] = localIp;
+
+    QNetworkAccessManager *manager = new QNetworkAccessManager(this);
+    QNetworkReply *reply = manager->post(request, QJsonDocument(obj).toJson());
+
+    connect(reply, &QNetworkReply::finished, this, [reply]() {
+        if (reply->error() != QNetworkReply::NoError) {
+            qWarning() << "Failed to register session:" << reply->errorString();
+        } else {
+            qDebug() << "Session successfully registered with server.";
+        }
+        reply->deleteLater();
+    });
 }
 
 void HostSession::handleNewConnection() {
@@ -59,8 +99,7 @@ void HostSession::readClientData() {
             QString clientName = obj["name"].toString();
             qDebug() << "Client joined:" << clientName;
             emit clientJoined(clientName);
-            
-            // Confirmer la connexion au client
+
             QJsonObject response;
             response["type"] = "joined";
             response["message"] = "Successfully joined session";
