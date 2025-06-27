@@ -51,7 +51,7 @@ void HostSession::start() {
     }
 
     // Envoyer IP + code au serveur Node
-    QUrl url("http://172.20.10.5:3000/register");  // Remplacer par l'IP du serveur Node
+    QUrl url("http://192.168.1.27:3000/register");  // Remplacer par l'IP du serveur Node
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 

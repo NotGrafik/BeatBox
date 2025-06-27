@@ -28,7 +28,7 @@ JoinSession::JoinSession(const QString &code, QObject *parent)
 void JoinSession::start() {
     qDebug() << "Attempting to connect to host with code:" << sessionCode;
 
-    QUrl url("http://172.20.10.5:3000/resolve/" + sessionCode); // IP du serveur Node
+    QUrl url("http://192.168.1.27:3000/resolve/" + sessionCode); // IP du serveur Node
     QNetworkRequest request(url);
 
     QNetworkAccessManager *manager = new QNetworkAccessManager(this);
