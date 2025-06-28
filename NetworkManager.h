@@ -14,15 +14,18 @@ class NetworkManager : public QObject {
 public:
     explicit NetworkManager(QObject *parent = nullptr);
     ~NetworkManager();
-    
+
     // Mode host
     void startHosting();
     QString getSessionCode() const;
     void startGameSession();
-    
+
     // Mode client
     void joinSession(const QString &code);
-    
+
+    // Upload functionality
+    void uploadSound(int index, const QString &filePath);
+
     bool isHost() const { return hostSession != nullptr; }
     bool isConnected() const;
 
@@ -43,11 +46,14 @@ private slots:
     void onConnectionError(const QString &error);
     void onSyncSound(int index, const QString& path, const QString& name);
     void onRemotePlay(int index);
+    void onUploadComplete();
 
 private:
     HostSession *hostSession;
     JoinSession *joinSessionClient;
     SoundManager* soundManager;
+    int currentUploadIndex;
+    QString currentUploadFileName;
 };
 
 #endif

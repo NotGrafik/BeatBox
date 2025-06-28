@@ -8,14 +8,14 @@
 
 MainWindow::MainWindow(QWidget *parent) 
     : QMainWindow(parent), isNetworkMode(false) {
-    
+
     QWidget *central = new QWidget(this);
     QVBoxLayout *layout = new QVBoxLayout(central);
     resize(800, 800);
 
     // Initialisation du NetworkManager
     networkManager = new NetworkManager(this);
-    
+
     // Connexions des signaux du NetworkManager
     connect(networkManager, &NetworkManager::sessionCreated, this, &MainWindow::onSessionCreated);
     connect(networkManager, &NetworkManager::clientJoined, this, &MainWindow::onClientJoined);
@@ -62,7 +62,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(joinButton, &QPushButton::clicked, this, &MainWindow::handleJoinMode);
     connect(startSessionButton, &QPushButton::clicked, this, &MainWindow::startNetworkSession);
     connect(joinSubmitButton, &QPushButton::clicked, this, &MainWindow::attemptJoinSession);
-    
+
     connect(joinCodeInput, &QLineEdit::returnPressed, this, &MainWindow::attemptJoinSession);
     connect(backButtonJoin, &QPushButton::clicked, this, [this]() {
         hideJoinInterface();
@@ -72,6 +72,9 @@ MainWindow::MainWindow(QWidget *parent)
     // Connexions PadPage
     connect(padPage, &PadPage::padClicked, this, &MainWindow::playPadSound);
     connect(padPage, &PadPage::uploadSoundRequested, this, &MainWindow::uploadSound);
+
+    // Connect NetworkManager soundReady signal to PadPage for upload completion
+    connect(networkManager, &NetworkManager::soundReady, padPage, &PadPage::onSoundReady);
 
     setCentralWidget(central);
 }
@@ -86,7 +89,7 @@ void MainWindow::handleSoloMode() {
 void MainWindow::handleHostMode() {
     hideModeButtons();
     isNetworkMode = true;
-    
+
     qDebug() << "Starting host mode...";
     networkManager->startHosting();
 }
@@ -94,13 +97,13 @@ void MainWindow::handleHostMode() {
 void MainWindow::handleJoinMode() {
     hideModeButtons();
     isNetworkMode = true;
-    
+
     joinCodeInput->clear();
     joinCodeInput->show();
     joinSubmitButton->show();
     backButtonJoin->show();
     joinCodeInput->setFocus();
-    
+
     qDebug() << "Join mode activated";
 }
 
@@ -117,23 +120,23 @@ void MainWindow::attemptJoinSession() {
         QMessageBox::warning(this, "Erreur", "Veuillez entrer un code de session.");
         return;
     }
-    
+
     if (code.length() != 6) {
         QMessageBox::warning(this, "Erreur", "Le code de session doit contenir 6 caractères.");
         return;
     }
-    
+
     qDebug() << "Attempting to join session with code:" << code;
     joinSubmitButton->setEnabled(false);
     joinSubmitButton->setText("Connexion...");
-    
+
     networkManager->joinSession(code);
 }
 
 void MainWindow::playPadSound(int index) {
     qDebug() << "Play sound on pad" << index;
     soundManager.playSound(index);
-    
+
     // Si on est en mode réseau, on pourrait envoyer l'info aux autres clients
     if (isNetworkMode && networkManager->isConnected()) {
         // TODO: Implémenter la synchronisation des sons
@@ -143,13 +146,16 @@ void MainWindow::playPadSound(int index) {
 
 void MainWindow::uploadSound(int index, const QString &path) {
     qDebug() << "Upload sound for pad" << index << ":" << path;
-    padPage->setPadLabel(index, QFileInfo(path).fileName());
-    soundManager.importSound(path);
-    
-    // Si on est en mode réseau, on pourrait synchroniser les sons
+
     if (isNetworkMode && networkManager->isConnected()) {
-        // TODO: Implémenter la synchronisation des fichiers sons
-        // networkManager->sendSoundFile(index, path);
+        // Network mode: use NetworkManager for upload
+        networkManager->uploadSound(index, path);
+    } else {
+        // Solo mode: import directly and update pad
+        QFileInfo info(path);
+        soundManager.importSound(path);
+        // Signal that the sound is ready to clear the loading state
+        padPage->onSoundReady(index, info.fileName());
     }
 }
 
@@ -159,46 +165,46 @@ void MainWindow::onSessionCreated(const QString &code) {
     sessionCodeLabel->setText("Session Code: " + code);
     sessionCodeLabel->show();
     startSessionButton->show();
-    
+
     QMessageBox::information(this, "Session créée", 
         QString("Session créée avec le code: %1\n\nPartagez ce code avec vos amis pour qu'ils puissent rejoindre.").arg(code));
 }
 
 void MainWindow::onClientJoined(const QString &name) {
     qDebug() << "Client joined:" << name;
-    
+
     // Optionnel: afficher une notification
     statusBar()->showMessage(QString("Client connecté: %1").arg(name), 3000);
 }
 
 void MainWindow::onJoinedSession() {
     qDebug() << "Successfully joined session!";
-    
+
     hideJoinInterface();
     showGameInterface();
-    
+
     QMessageBox::information(this, "Connexion réussie", 
         "Vous avez rejoint la session avec succès!\nEn attente du démarrage par l'hôte...");
 }
 
 void MainWindow::onSessionStarted() {
     qDebug() << "Session started!";
-    
+
     // Masquer les éléments de configuration et afficher le jeu
     sessionCodeLabel->hide();
     startSessionButton->hide();
     showGameInterface();
-    
+
     QMessageBox::information(this, "Session démarrée", "La session a démarré! Vous pouvez maintenant jouer.");
 }
 
 void MainWindow::onConnectionError(const QString &error) {
     qDebug() << "Connection error:" << error;
-    
+
     // Réactiver le bouton de connexion
     joinSubmitButton->setEnabled(true);
     joinSubmitButton->setText("Rejoindre");
-    
+
     QMessageBox::critical(this, "Erreur de connexion", 
         QString("Impossible de rejoindre la session:\n%1").arg(error));
 }
