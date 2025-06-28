@@ -127,7 +127,12 @@ void HostSession::readClientData() {
 
             if (fileData.size() == fileSize) {
                 // Sauvegarder le fichier localement
-                QString savePath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/" + fileName;
+                QString saveDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+                QDir dir;
+                if (!dir.exists(saveDir)) {
+                    dir.mkpath(saveDir);
+                }
+                QString savePath = saveDir + "/" + fileName;
                 QFile file(savePath);
                 if (file.open(QIODevice::WriteOnly)) {
                     if (file.write(fileData) == fileData.size()) {
