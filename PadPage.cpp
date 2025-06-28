@@ -6,11 +6,13 @@
 #include <QCoreApplication>
 #include <QFileDialog>
 #include <QFile>
+#include <QFileInfo>
 #include <QDir>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTimer>
 #include <QStandardPaths>
+#include "SoundManager.h"
 
 PadPage::PadPage(QWidget *parent) : QWidget(parent) {
     QGridLayout *grid = new QGridLayout(this);
@@ -65,30 +67,42 @@ void PadPage::handlePadClick(int index) {
 void PadPage::handleUpload(int index) {
     QString filePath = QFileDialog::getOpenFileName(this, "Choose a sound file");
     if (!filePath.isEmpty()) {
-        QString fileName = QFileInfo(filePath).fileName();
-        QFile file(filePath);
+        // QString fileName = QFileInfo(filePath).fileName();
+        // QFile file(filePath);
         
-        if (!file.open(QIODevice::ReadOnly)) {
-            setPadLabel(index, "File Error");
-            return;
+        // if (!file.open(QIODevice::ReadOnly)) {
+        //     setPadLabel(index, "File Error");
+        //     return;
+        // }
+
+        // setPadLabel(index, "Loading...");
+        // uploadTimer->start(10000); // 10 secondes timeout
+
+        // QByteArray fileData = file.readAll();
+        // file.close();
+
+        // // Envoyer en base64
+        // QJsonObject obj;
+        // obj["type"] = "upload";
+        // obj["index"] = index;
+        // obj["name"] = fileName;
+        // obj["data"] = QString::fromUtf8(fileData.toBase64());
+        // obj["size"] = fileData.size();
+
+        // QJsonDocument doc(obj);
+        // emit sendToNetwork(doc.toJson(QJsonDocument::Compact) + "\n");
+        SoundManager* soundManager = new SoundManager(this);
+        if (soundManager) {
+            soundManager->importSound(filePath);
+            QFileInfo info(filePath);
+            QString name = info.fileName();
+            setPadLabel(index, name);
+
+            emit uploadSoundRequested(index, filePath);
+            emit sendToNetwork(QString("upload %1 %2").arg(index).arg(name));
+        } else {
+            qWarning() << "Parent is not a SoundManager instance."; 
         }
-
-        setPadLabel(index, "Loading...");
-        uploadTimer->start(10000); // 10 secondes timeout
-
-        QByteArray fileData = file.readAll();
-        file.close();
-
-        // Envoyer en base64
-        QJsonObject obj;
-        obj["type"] = "upload";
-        obj["index"] = index;
-        obj["name"] = fileName;
-        obj["data"] = QString::fromUtf8(fileData.toBase64());
-        obj["size"] = fileData.size();
-
-        QJsonDocument doc(obj);
-        emit sendToNetwork(doc.toJson(QJsonDocument::Compact) + "\n");
     }
 }
 
