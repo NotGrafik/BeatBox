@@ -14,17 +14,26 @@ class NetworkManager : public QObject {
 public:
     explicit NetworkManager(QObject *parent = nullptr);
     ~NetworkManager();
-    
+
     // Mode host
     void startHosting();
     QString getSessionCode() const;
     void startGameSession();
-    
+
     // Mode client
     void joinSession(const QString &code);
-    
+
     bool isHost() const { return hostSession != nullptr; }
     bool isConnected() const;
+
+    // Access to SoundManager
+    SoundManager* getSoundManager() const { return soundManager; }
+
+    // Host upload with synchronization
+    void uploadSoundAsHost(const QString &filePath);
+
+    // Client upload to host
+    void uploadSoundAsClient(const QString &filePath);
 
 signals:
     void sessionCreated(const QString &code);

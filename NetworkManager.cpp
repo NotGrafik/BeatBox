@@ -25,11 +25,11 @@ void NetworkManager::startHosting() {
     if (hostSession) {
         delete hostSession;
     }
-    
+
     hostSession = new HostSession(soundManager, this);
     connect(hostSession, &HostSession::clientJoined, this, &NetworkManager::onClientJoined);
     connect(hostSession, &HostSession::sessionReady, this, &NetworkManager::onSessionReady);
-    
+
     hostSession->start();
     emit sessionCreated(hostSession->getSessionCode());
 }
@@ -48,13 +48,13 @@ void NetworkManager::joinSession(const QString &code) {
     if (joinSessionClient) {
         delete joinSessionClient;
     }
-    
+
     joinSessionClient = new JoinSession(code, this);
     connect(joinSessionClient, &JoinSession::joinedSuccessfully, this, &NetworkManager::onJoinedSuccessfully);
     connect(joinSessionClient, &JoinSession::sessionStarted, this, &NetworkManager::onSessionStarted);
     connect(joinSessionClient, &JoinSession::connectionError, this, &NetworkManager::onConnectionError);
     connect(joinSessionClient, &JoinSession::syncSound, this, &NetworkManager::onSyncSound);
-    
+
     joinSessionClient->start();
 }
 
@@ -102,4 +102,33 @@ void NetworkManager::onSyncSound(int index, const QString& path, const QString& 
 
 void NetworkManager::onRemotePlay(int index) {
     soundManager->playSound(index);
+}
+
+void NetworkManager::uploadSoundAsHost(const QString &filePath) {
+    if (!hostSession) {
+        qWarning() << "Cannot upload sound: not hosting a session";
+        return;
+    }
+
+    // Add sound to the NetworkManager's SoundManager
+    soundManager->importSound(filePath);
+
+    // Synchronize to all clients
+    QFileInfo info(filePath);
+    QString fileName = info.fileName();
+    hostSession->syncSoundToClients(filePath, fileName);
+
+    qDebug() << "Host uploaded and synchronized sound:" << fileName;
+}
+
+void NetworkManager::uploadSoundAsClient(const QString &filePath) {
+    if (!joinSessionClient) {
+        qWarning() << "Cannot upload sound: not connected to a session";
+        return;
+    }
+
+    // Send file to host via JoinSession
+    joinSessionClient->uploadSound(filePath);
+
+    qDebug() << "Client uploading sound:" << QFileInfo(filePath).fileName();
 }

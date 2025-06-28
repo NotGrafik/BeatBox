@@ -69,7 +69,7 @@ void PadPage::handleUpload(int index) {
     if (!filePath.isEmpty()) {
         // QString fileName = QFileInfo(filePath).fileName();
         // QFile file(filePath);
-        
+
         // if (!file.open(QIODevice::ReadOnly)) {
         //     setPadLabel(index, "File Error");
         //     return;
@@ -91,18 +91,13 @@ void PadPage::handleUpload(int index) {
 
         // QJsonDocument doc(obj);
         // emit sendToNetwork(doc.toJson(QJsonDocument::Compact) + "\n");
-        SoundManager* soundManager = new SoundManager(this);
-        if (soundManager) {
-            soundManager->importSound(filePath);
-            QFileInfo info(filePath);
-            QString name = info.fileName();
-            setPadLabel(index, name);
 
-            emit uploadSoundRequested(index, filePath);
-            emit sendToNetwork(QString("upload %1 %2").arg(index).arg(name));
-        } else {
-            qWarning() << "Parent is not a SoundManager instance."; 
-        }
+        QFileInfo info(filePath);
+        QString name = info.fileName();
+        setPadLabel(index, name);
+
+        emit uploadSoundRequested(index, filePath);
+        emit sendToNetwork(QString("upload %1 %2").arg(index).arg(name));
     }
 }
 
