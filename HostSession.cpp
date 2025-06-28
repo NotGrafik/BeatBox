@@ -115,27 +115,45 @@ void HostSession::readClientData() {
             qint64 fileSize = obj["size"].toInt();
             int index = obj["index"].toInt(); // Get the pad index from client
 
-            // Préparer la réception du fichier
-            QByteArray fileData = client->read(fileSize);
+            // Préparer la réception du fichier - handle chunked data properly
+            QByteArray fileData;
+            while (fileData.size() < fileSize) {
+                if (!client->waitForReadyRead(5000)) {
+                    qDebug() << "Timeout while waiting for file data from client";
+                    return;
+                }
+                fileData.append(client->read(fileSize - fileData.size()));
+            }
+
             if (fileData.size() == fileSize) {
                 // Sauvegarder le fichier localement
                 QString savePath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/" + fileName;
                 QFile file(savePath);
                 if (file.open(QIODevice::WriteOnly)) {
-                    file.write(fileData);
-                    file.close();
+                    if (file.write(fileData) == fileData.size()) {
+                        file.close();
+                        qDebug() << "File uploaded successfully from client:" << fileName;
 
-                    // Import sound to host's sound manager at the correct index
-                    soundManager->importSound(savePath);
+                        // Import sound to host's sound manager at the correct index
+                        soundManager->importSound(savePath);
 
-                    // Synchroniser avec les autres clients
-                    syncSoundToClients(index, savePath, fileName);
+                        // Synchroniser avec les autres clients
+                        syncSoundToClients(index, savePath, fileName);
 
-                    // Confirmer l'upload
-                    QJsonObject response;
-                    response["type"] = "uploadComplete";
-                    client->write(QJsonDocument(response).toJson() + "\n");
+                        // Confirmer l'upload
+                        QJsonObject response;
+                        response["type"] = "uploadComplete";
+                        client->write(QJsonDocument(response).toJson() + "\n");
+                        client->flush();
+                        qDebug() << "Upload confirmation sent to client";
+                    } else {
+                        qDebug() << "Failed to write uploaded file:" << file.errorString();
+                    }
+                } else {
+                    qDebug() << "Failed to open file for writing:" << file.errorString();
                 }
+            } else {
+                qDebug() << "File size mismatch: expected" << fileSize << "got" << fileData.size();
             }
         }
         else if (obj["type"] == "play") {
