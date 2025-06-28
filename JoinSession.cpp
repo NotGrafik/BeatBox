@@ -95,14 +95,14 @@ void JoinSession::handleReadyRead() {
             int index = obj["index"].toInt();
             QString name = obj["name"].toString();
             qint64 fileSize = obj["size"].toInt();
-
+            
             // Créer un répertoire pour stocker les sons
             QString saveDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/sounds/";
             QDir dir;
             if (!dir.exists(saveDir)) {
                 dir.mkpath(saveDir);
             }
-
+            
             // Lire les données du fichier
             QByteArray fileData;
             while (fileData.size() < fileSize) {
@@ -112,7 +112,7 @@ void JoinSession::handleReadyRead() {
                 }
                 fileData.append(socket.read(fileSize - fileData.size()));
             }
-
+            
             // Sauvegarder le fichier
             QString filePath = saveDir + name;
             QFile file(filePath);
@@ -127,10 +127,6 @@ void JoinSession::handleReadyRead() {
             } else {
                 qDebug() << "Failed to open file for writing:" << file.errorString();
             }
-        } else if (type == "play") {
-            int index = obj["index"].toInt();
-            qDebug() << "Received play command for pad" << index;
-            emit remotePlay(index);
         }
     }
 }
@@ -153,7 +149,7 @@ void JoinSession::handleError(QAbstractSocket::SocketError error) {
     emit connectionError("Connection failed: " + errorString);
 }
 
-void JoinSession::uploadSound(int index, const QString &filePath) {
+void JoinSession::uploadSound(const QString &filePath) {
     uploadTimer->stop(); // Arrêter le timer s'il était actif
     uploadConfirmed = false;
 
@@ -162,21 +158,20 @@ void JoinSession::uploadSound(int index, const QString &filePath) {
         emit uploadFailed("Cannot open file");
         return;
     }
-
+    
     QByteArray fileData = file.readAll();
     file.close();
-
+    
     QFileInfo info(filePath);
     QString fileName = info.fileName();
-
+    
     QJsonObject obj;
     obj["type"] = "upload";
-    obj["index"] = index;  // Include the pad index
     obj["name"] = fileName;
     obj["size"] = fileData.size();
-
+    
     QByteArray header = QJsonDocument(obj).toJson(QJsonDocument::Compact) + "\n";
-
+    
     if (socket.state() == QTcpSocket::ConnectedState) {
         if (socket.write(header) == -1 || socket.write(fileData) == -1) {
             emit uploadFailed("Failed to send data");
@@ -186,26 +181,11 @@ void JoinSession::uploadSound(int index, const QString &filePath) {
             emit uploadFailed("Failed to flush data");
             return;
         }
-
-        uploadTimer->start(30000); // 30 seconds timeout for large audio files
+        
+        uploadTimer->start(10000); // 10 secondes timeout
         qDebug() << "Upload started, timeout timer running...";
     } else {
         emit uploadFailed("Not connected to host");
-    }
-}
-
-void JoinSession::sendPlayCommand(int index) {
-    QJsonObject obj;
-    obj["type"] = "play";
-    obj["index"] = index;
-    QByteArray msg = QJsonDocument(obj).toJson(QJsonDocument::Compact) + "\n";
-
-    if (socket.state() == QTcpSocket::ConnectedState) {
-        socket.write(msg);
-        socket.flush();
-        qDebug() << "Sent play command for pad" << index;
-    } else {
-        qDebug() << "Cannot send play command - not connected to host";
     }
 }
 

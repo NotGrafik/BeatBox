@@ -6,11 +6,13 @@
 #include <QCoreApplication>
 #include <QFileDialog>
 #include <QFile>
+#include <QFileInfo>
 #include <QDir>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTimer>
 #include <QStandardPaths>
+#include "SoundManager.h"
 
 PadPage::PadPage(QWidget *parent) : QWidget(parent) {
     QGridLayout *grid = new QGridLayout(this);
@@ -65,11 +67,37 @@ void PadPage::handlePadClick(int index) {
 void PadPage::handleUpload(int index) {
     QString filePath = QFileDialog::getOpenFileName(this, "Choose a sound file");
     if (!filePath.isEmpty()) {
-        setPadLabel(index, "Loading...");
-        uploadTimer->start(30000); // 30 seconds timeout for large audio files
+        // QString fileName = QFileInfo(filePath).fileName();
+        // QFile file(filePath);
 
-        // Emit signal to MainWindow to handle the upload
+        // if (!file.open(QIODevice::ReadOnly)) {
+        //     setPadLabel(index, "File Error");
+        //     return;
+        // }
+
+        // setPadLabel(index, "Loading...");
+        // uploadTimer->start(10000); // 10 secondes timeout
+
+        // QByteArray fileData = file.readAll();
+        // file.close();
+
+        // // Envoyer en base64
+        // QJsonObject obj;
+        // obj["type"] = "upload";
+        // obj["index"] = index;
+        // obj["name"] = fileName;
+        // obj["data"] = QString::fromUtf8(fileData.toBase64());
+        // obj["size"] = fileData.size();
+
+        // QJsonDocument doc(obj);
+        // emit sendToNetwork(doc.toJson(QJsonDocument::Compact) + "\n");
+
+        QFileInfo info(filePath);
+        QString name = info.fileName();
+        setPadLabel(index, name);
+
         emit uploadSoundRequested(index, filePath);
+        emit sendToNetwork(QString("upload %1 %2").arg(index).arg(name));
     }
 }
 
@@ -86,15 +114,4 @@ void PadPage::setPadLabel(int index, const QString &label) {
 void PadPage::onSoundReady(int index, const QString& name) {
     uploadTimer->stop();
     setPadLabel(index, name);
-}
-
-void PadPage::handleUploadTimeout() {
-    qDebug() << "Upload timed out - resetting pad state";
-    // Reset all pads that might be in loading state
-    for (int i = 0; i < padButtons.size(); ++i) {
-        QString currentText = static_cast<QToolButton*>(padButtons[i])->text();
-        if (currentText == "Loading...") {
-            setPadLabel(i, QString("Pad %1").arg(i + 1));
-        }
-    }
 }

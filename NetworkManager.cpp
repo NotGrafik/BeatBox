@@ -5,7 +5,8 @@
 #include <QFileInfo>
 
 NetworkManager::NetworkManager(QObject *parent)
-    : QObject(parent), hostSession(nullptr), joinSessionClient(nullptr), soundManager(new SoundManager(this)), currentUploadIndex(-1) {
+
+    : QObject(parent), hostSession(nullptr), joinSessionClient(nullptr), soundManager(new SoundManager(this)) {
 }
 
 
@@ -53,8 +54,6 @@ void NetworkManager::joinSession(const QString &code) {
     connect(joinSessionClient, &JoinSession::sessionStarted, this, &NetworkManager::onSessionStarted);
     connect(joinSessionClient, &JoinSession::connectionError, this, &NetworkManager::onConnectionError);
     connect(joinSessionClient, &JoinSession::syncSound, this, &NetworkManager::onSyncSound);
-    connect(joinSessionClient, &JoinSession::uploadComplete, this, &NetworkManager::onUploadComplete);
-    connect(joinSessionClient, &JoinSession::remotePlay, this, &NetworkManager::onRemotePlay);
 
     joinSessionClient->start();
 }
@@ -92,54 +91,44 @@ void NetworkManager::onConnectionError(const QString &error) {
 
 void NetworkManager::onSyncSound(int index, const QString& path, const QString& name) {
     soundManager->importSound(path);
-    // Note: No need to sync to clients here as this is called when receiving sync from host
+    if (hostSession) {
+        int index = soundManager->getSoundCount() - 1;
+        QFileInfo info(path);
+        QString name = info.fileName();
+        hostSession->syncSoundToClients(path, name);
+    }
     emit soundReady(index, name);
-}
-
-void NetworkManager::uploadSound(int index, const QString &filePath) {
-    if (isHost()) {
-        // Host mode: import sound locally and sync to clients
-        soundManager->importSound(filePath);
-        QFileInfo info(filePath);
-        QString fileName = info.fileName();
-
-        if (hostSession) {
-            hostSession->syncSoundToClients(index, filePath, fileName);
-        }
-
-        emit soundReady(index, fileName);
-    } else if (joinSessionClient) {
-        // Client mode: upload to host
-        currentUploadIndex = index;
-        QFileInfo info(filePath);
-        currentUploadFileName = info.fileName();
-        joinSessionClient->uploadSound(index, filePath);
-    }
-}
-
-void NetworkManager::onUploadComplete() {
-    if (currentUploadIndex >= 0) {
-        emit soundReady(currentUploadIndex, currentUploadFileName);
-        currentUploadIndex = -1; // Reset
-        currentUploadFileName.clear(); // Reset
-    }
-}
-
-void NetworkManager::playSound(int index) {
-    // Play sound locally
-    soundManager->playSound(index);
-
-    if (isHost()) {
-        // Host mode: broadcast play command to all clients
-        if (hostSession) {
-            hostSession->broadcastPlayCommand(index);
-        }
-    } else if (joinSessionClient) {
-        // Client mode: send play command to host
-        joinSessionClient->sendPlayCommand(index);
-    }
 }
 
 void NetworkManager::onRemotePlay(int index) {
     soundManager->playSound(index);
+}
+
+void NetworkManager::uploadSoundAsHost(const QString &filePath) {
+    if (!hostSession) {
+        qWarning() << "Cannot upload sound: not hosting a session";
+        return;
+    }
+
+    // Add sound to the NetworkManager's SoundManager
+    soundManager->importSound(filePath);
+
+    // Synchronize to all clients
+    QFileInfo info(filePath);
+    QString fileName = info.fileName();
+    hostSession->syncSoundToClients(filePath, fileName);
+
+    qDebug() << "Host uploaded and synchronized sound:" << fileName;
+}
+
+void NetworkManager::uploadSoundAsClient(const QString &filePath) {
+    if (!joinSessionClient) {
+        qWarning() << "Cannot upload sound: not connected to a session";
+        return;
+    }
+
+    // Send file to host via JoinSession
+    joinSessionClient->uploadSound(filePath);
+
+    qDebug() << "Client uploading sound:" << QFileInfo(filePath).fileName();
 }

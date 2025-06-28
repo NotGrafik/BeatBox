@@ -73,9 +73,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(padPage, &PadPage::padClicked, this, &MainWindow::playPadSound);
     connect(padPage, &PadPage::uploadSoundRequested, this, &MainWindow::uploadSound);
 
-    // Connect NetworkManager soundReady signal to PadPage for upload completion
-    connect(networkManager, &NetworkManager::soundReady, padPage, &PadPage::onSoundReady);
-
     setCentralWidget(central);
 }
 
@@ -137,26 +134,29 @@ void MainWindow::playPadSound(int index) {
     qDebug() << "Play sound on pad" << index;
 
     if (isNetworkMode && networkManager->isConnected()) {
-        // Network mode: use NetworkManager to play and sync across all machines
-        networkManager->playSound(index);
+        // En mode réseau, utiliser le SoundManager du NetworkManager
+        networkManager->getSoundManager()->playSound(index);
     } else {
-        // Solo mode: play locally only
+        // En mode solo, utiliser le SoundManager local
         soundManager.playSound(index);
     }
 }
 
 void MainWindow::uploadSound(int index, const QString &path) {
     qDebug() << "Upload sound for pad" << index << ":" << path;
+    padPage->setPadLabel(index, QFileInfo(path).fileName());
 
     if (isNetworkMode && networkManager->isConnected()) {
-        // Network mode: use NetworkManager for upload
-        networkManager->uploadSound(index, path);
+        if (networkManager->isHost()) {
+            // Host upload: use NetworkManager to sync to all clients
+            networkManager->uploadSoundAsHost(path);
+        } else {
+            // Client upload: use NetworkManager to send to host
+            networkManager->uploadSoundAsClient(path);
+        }
     } else {
-        // Solo mode: import directly and update pad
-        QFileInfo info(path);
+        // Solo mode: use local SoundManager
         soundManager.importSound(path);
-        // Signal that the sound is ready to clear the loading state
-        padPage->onSoundReady(index, info.fileName());
     }
 }
 

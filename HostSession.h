@@ -17,8 +17,7 @@ public:
     void start();
     void startSession();
 
-    void syncSoundToClients(int index, const QString &path, const QString &name);
-    void broadcastPlayCommand(int index);
+    void syncSoundToClients(const QString &path, const QString &name);
     void handleFileUpload(QTcpSocket* client, const QByteArray& data);
 
 signals:
