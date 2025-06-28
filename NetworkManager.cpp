@@ -54,6 +54,7 @@ void NetworkManager::joinSession(const QString &code) {
     connect(joinSessionClient, &JoinSession::connectionError, this, &NetworkManager::onConnectionError);
     connect(joinSessionClient, &JoinSession::syncSound, this, &NetworkManager::onSyncSound);
     connect(joinSessionClient, &JoinSession::uploadComplete, this, &NetworkManager::onUploadComplete);
+    connect(joinSessionClient, &JoinSession::remotePlay, this, &NetworkManager::onRemotePlay);
 
     joinSessionClient->start();
 }
@@ -91,12 +92,7 @@ void NetworkManager::onConnectionError(const QString &error) {
 
 void NetworkManager::onSyncSound(int index, const QString& path, const QString& name) {
     soundManager->importSound(path);
-    if (hostSession) {
-        int soundIndex = soundManager->getSoundCount() - 1;
-        QFileInfo info(path);
-        QString fileName = info.fileName();
-        hostSession->syncSoundToClients(path, fileName);
-    }
+    // Note: No need to sync to clients here as this is called when receiving sync from host
     emit soundReady(index, name);
 }
 
@@ -108,7 +104,7 @@ void NetworkManager::uploadSound(int index, const QString &filePath) {
         QString fileName = info.fileName();
 
         if (hostSession) {
-            hostSession->syncSoundToClients(filePath, fileName);
+            hostSession->syncSoundToClients(index, filePath, fileName);
         }
 
         emit soundReady(index, fileName);
@@ -117,7 +113,7 @@ void NetworkManager::uploadSound(int index, const QString &filePath) {
         currentUploadIndex = index;
         QFileInfo info(filePath);
         currentUploadFileName = info.fileName();
-        joinSessionClient->uploadSound(filePath);
+        joinSessionClient->uploadSound(index, filePath);
     }
 }
 
@@ -126,6 +122,21 @@ void NetworkManager::onUploadComplete() {
         emit soundReady(currentUploadIndex, currentUploadFileName);
         currentUploadIndex = -1; // Reset
         currentUploadFileName.clear(); // Reset
+    }
+}
+
+void NetworkManager::playSound(int index) {
+    // Play sound locally
+    soundManager->playSound(index);
+
+    if (isHost()) {
+        // Host mode: broadcast play command to all clients
+        if (hostSession) {
+            hostSession->broadcastPlayCommand(index);
+        }
+    } else if (joinSessionClient) {
+        // Client mode: send play command to host
+        joinSessionClient->sendPlayCommand(index);
     }
 }
 

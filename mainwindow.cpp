@@ -135,12 +135,13 @@ void MainWindow::attemptJoinSession() {
 
 void MainWindow::playPadSound(int index) {
     qDebug() << "Play sound on pad" << index;
-    soundManager.playSound(index);
 
-    // Si on est en mode réseau, on pourrait envoyer l'info aux autres clients
     if (isNetworkMode && networkManager->isConnected()) {
-        // TODO: Implémenter la synchronisation des sons
-        // networkManager->sendPadPressed(index);
+        // Network mode: use NetworkManager to play and sync across all machines
+        networkManager->playSound(index);
+    } else {
+        // Solo mode: play locally only
+        soundManager.playSound(index);
     }
 }
 

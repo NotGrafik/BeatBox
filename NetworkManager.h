@@ -26,6 +26,9 @@ public:
     // Upload functionality
     void uploadSound(int index, const QString &filePath);
 
+    // Play functionality
+    void playSound(int index);
+
     bool isHost() const { return hostSession != nullptr; }
     bool isConnected() const;
 

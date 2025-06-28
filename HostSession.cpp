@@ -113,7 +113,8 @@ void HostSession::readClientData() {
             // Nouveau code pour gérer l'upload
             QString fileName = obj["name"].toString();
             qint64 fileSize = obj["size"].toInt();
-            
+            int index = obj["index"].toInt(); // Get the pad index from client
+
             // Préparer la réception du fichier
             QByteArray fileData = client->read(fileSize);
             if (fileData.size() == fileSize) {
@@ -123,14 +124,37 @@ void HostSession::readClientData() {
                 if (file.open(QIODevice::WriteOnly)) {
                     file.write(fileData);
                     file.close();
-                    
+
+                    // Import sound to host's sound manager at the correct index
+                    soundManager->importSound(savePath);
+
                     // Synchroniser avec les autres clients
-                    syncSoundToClients(savePath, fileName);
-                    
+                    syncSoundToClients(index, savePath, fileName);
+
                     // Confirmer l'upload
                     QJsonObject response;
                     response["type"] = "uploadComplete";
                     client->write(QJsonDocument(response).toJson() + "\n");
+                }
+            }
+        }
+        else if (obj["type"] == "play") {
+            // Handle play command from client
+            int index = obj["index"].toInt();
+            qDebug() << "Received play command for pad" << index;
+
+            // Play sound locally on host
+            soundManager->playSound(index);
+
+            // Forward play command to all other clients
+            QJsonObject playMsg;
+            playMsg["type"] = "play";
+            playMsg["index"] = index;
+            QByteArray playData = QJsonDocument(playMsg).toJson(QJsonDocument::Compact) + "\n";
+
+            for (QTcpSocket* c : clients) {
+                if (c != client && c->state() == QAbstractSocket::ConnectedState) {
+                    c->write(playData);
                 }
             }
         }
@@ -160,29 +184,41 @@ void HostSession::startSession() {
     emit sessionReady();
 }
 
-void HostSession::syncSoundToClients(const QString &path, const QString &name) {
+void HostSession::syncSoundToClients(int index, const QString &path, const QString &name) {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
         qWarning() << "Failed to open file for sync:" << path;
         return;
     }
-    
+
     QByteArray fileData = file.readAll();
     file.close();
 
-    int index = soundManager->getSoundCount();
     QJsonObject obj;
     obj["type"] = "syncSound";
     obj["index"] = index;
     obj["name"] = name;
     obj["size"] = fileData.size();
-    
+
     QByteArray header = QJsonDocument(obj).toJson(QJsonDocument::Compact) + "\n";
-    
+
     for (QTcpSocket* c : clients) {
         if (c->state() == QAbstractSocket::ConnectedState) {
             c->write(header);
             c->write(fileData);
+        }
+    }
+}
+
+void HostSession::broadcastPlayCommand(int index) {
+    QJsonObject obj;
+    obj["type"] = "play";
+    obj["index"] = index;
+    QByteArray msg = QJsonDocument(obj).toJson(QJsonDocument::Compact) + "\n";
+
+    for (QTcpSocket* c : clients) {
+        if (c->state() == QAbstractSocket::ConnectedState) {
+            c->write(msg);
         }
     }
 }
