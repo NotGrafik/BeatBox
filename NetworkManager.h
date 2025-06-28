@@ -23,17 +23,11 @@ public:
     // Mode client
     void joinSession(const QString &code);
 
+    // Upload functionality
+    void uploadSound(int index, const QString &filePath);
+
     bool isHost() const { return hostSession != nullptr; }
     bool isConnected() const;
-
-    // Access to SoundManager
-    SoundManager* getSoundManager() const { return soundManager; }
-
-    // Host upload with synchronization
-    void uploadSoundAsHost(const QString &filePath);
-
-    // Client upload to host
-    void uploadSoundAsClient(const QString &filePath);
 
 signals:
     void sessionCreated(const QString &code);
@@ -52,11 +46,14 @@ private slots:
     void onConnectionError(const QString &error);
     void onSyncSound(int index, const QString& path, const QString& name);
     void onRemotePlay(int index);
+    void onUploadComplete();
 
 private:
     HostSession *hostSession;
     JoinSession *joinSessionClient;
     SoundManager* soundManager;
+    int currentUploadIndex;
+    QString currentUploadFileName;
 };
 
 #endif

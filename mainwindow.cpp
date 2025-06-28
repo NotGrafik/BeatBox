@@ -73,6 +73,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(padPage, &PadPage::padClicked, this, &MainWindow::playPadSound);
     connect(padPage, &PadPage::uploadSoundRequested, this, &MainWindow::uploadSound);
 
+    // Connect NetworkManager soundReady signal to PadPage for upload completion
+    connect(networkManager, &NetworkManager::soundReady, padPage, &PadPage::onSoundReady);
+
     setCentralWidget(central);
 }
 
@@ -132,31 +135,27 @@ void MainWindow::attemptJoinSession() {
 
 void MainWindow::playPadSound(int index) {
     qDebug() << "Play sound on pad" << index;
+    soundManager.playSound(index);
 
+    // Si on est en mode réseau, on pourrait envoyer l'info aux autres clients
     if (isNetworkMode && networkManager->isConnected()) {
-        // En mode réseau, utiliser le SoundManager du NetworkManager
-        networkManager->getSoundManager()->playSound(index);
-    } else {
-        // En mode solo, utiliser le SoundManager local
-        soundManager.playSound(index);
+        // TODO: Implémenter la synchronisation des sons
+        // networkManager->sendPadPressed(index);
     }
 }
 
 void MainWindow::uploadSound(int index, const QString &path) {
     qDebug() << "Upload sound for pad" << index << ":" << path;
-    padPage->setPadLabel(index, QFileInfo(path).fileName());
 
     if (isNetworkMode && networkManager->isConnected()) {
-        if (networkManager->isHost()) {
-            // Host upload: use NetworkManager to sync to all clients
-            networkManager->uploadSoundAsHost(path);
-        } else {
-            // Client upload: use NetworkManager to send to host
-            networkManager->uploadSoundAsClient(path);
-        }
+        // Network mode: use NetworkManager for upload
+        networkManager->uploadSound(index, path);
     } else {
-        // Solo mode: use local SoundManager
+        // Solo mode: import directly and update pad
+        QFileInfo info(path);
         soundManager.importSound(path);
+        // Signal that the sound is ready to clear the loading state
+        padPage->onSoundReady(index, info.fileName());
     }
 }
 
