@@ -113,52 +113,48 @@ void HostSession::readClientData() {
             // Nouveau code pour gérer l'upload
             QString fileName = obj["name"].toString();
             qint64 fileSize = obj["size"].toInt();
+            int index = obj["index"].toInt(); // Get the pad index from client
 
             // Préparer la réception du fichier
             QByteArray fileData = client->read(fileSize);
             if (fileData.size() == fileSize) {
                 // Sauvegarder le fichier localement
-                QString saveDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-                QDir dir;
-                if (!dir.exists(saveDir)) {
-                    dir.mkpath(saveDir);
-                }
-                QString savePath = saveDir + "/" + fileName;
+                QString savePath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/" + fileName;
                 QFile file(savePath);
                 if (file.open(QIODevice::WriteOnly)) {
-                    if (file.write(fileData) == fileData.size()) {
-                        file.close();
+                    file.write(fileData);
+                    file.close();
 
-                        // Ajouter le son au SoundManager
-                        soundManager->importSound(savePath);
+                    // Import sound to host's sound manager at the correct index
+                    soundManager->importSound(savePath);
 
-                        // Synchroniser avec les autres clients
-                        syncSoundToClients(savePath, fileName);
+                    // Synchroniser avec les autres clients
+                    syncSoundToClients(index, savePath, fileName);
 
-                        // Confirmer l'upload
-                        QJsonObject response;
-                        response["type"] = "uploadComplete";
-                        client->write(QJsonDocument(response).toJson() + "\n");
-
-                        qDebug() << "File uploaded successfully:" << savePath;
-                    } else {
-                        file.close();
-                        qWarning() << "Failed to write complete file data:" << savePath;
-
-                        // Envoyer une erreur au client
-                        QJsonObject response;
-                        response["type"] = "uploadError";
-                        response["message"] = "Failed to write file data";
-                        client->write(QJsonDocument(response).toJson() + "\n");
-                    }
-                } else {
-                    qWarning() << "Failed to open file for writing:" << savePath << file.errorString();
-
-                    // Envoyer une erreur au client
+                    // Confirmer l'upload
                     QJsonObject response;
-                    response["type"] = "uploadError";
-                    response["message"] = "Failed to create file: " + file.errorString();
+                    response["type"] = "uploadComplete";
                     client->write(QJsonDocument(response).toJson() + "\n");
+                }
+            }
+        }
+        else if (obj["type"] == "play") {
+            // Handle play command from client
+            int index = obj["index"].toInt();
+            qDebug() << "Received play command for pad" << index;
+
+            // Play sound locally on host
+            soundManager->playSound(index);
+
+            // Forward play command to all other clients
+            QJsonObject playMsg;
+            playMsg["type"] = "play";
+            playMsg["index"] = index;
+            QByteArray playData = QJsonDocument(playMsg).toJson(QJsonDocument::Compact) + "\n";
+
+            for (QTcpSocket* c : clients) {
+                if (c != client && c->state() == QAbstractSocket::ConnectedState) {
+                    c->write(playData);
                 }
             }
         }
@@ -188,7 +184,7 @@ void HostSession::startSession() {
     emit sessionReady();
 }
 
-void HostSession::syncSoundToClients(const QString &path, const QString &name) {
+void HostSession::syncSoundToClients(int index, const QString &path, const QString &name) {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
         qWarning() << "Failed to open file for sync:" << path;
@@ -198,7 +194,6 @@ void HostSession::syncSoundToClients(const QString &path, const QString &name) {
     QByteArray fileData = file.readAll();
     file.close();
 
-    int index = soundManager->getSoundCount();
     QJsonObject obj;
     obj["type"] = "syncSound";
     obj["index"] = index;
@@ -211,6 +206,19 @@ void HostSession::syncSoundToClients(const QString &path, const QString &name) {
         if (c->state() == QAbstractSocket::ConnectedState) {
             c->write(header);
             c->write(fileData);
+        }
+    }
+}
+
+void HostSession::broadcastPlayCommand(int index) {
+    QJsonObject obj;
+    obj["type"] = "play";
+    obj["index"] = index;
+    QByteArray msg = QJsonDocument(obj).toJson(QJsonDocument::Compact) + "\n";
+
+    for (QTcpSocket* c : clients) {
+        if (c->state() == QAbstractSocket::ConnectedState) {
+            c->write(msg);
         }
     }
 }

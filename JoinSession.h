@@ -11,7 +11,8 @@ class JoinSession : public QObject
 public:
     explicit JoinSession(const QString &code, QObject *parent = nullptr);
     void start();
-    void uploadSound(const QString &filePath);
+    void uploadSound(int index, const QString &filePath);
+    void sendPlayCommand(int index);
 
 signals:
     void joinedSuccessfully();
@@ -20,6 +21,7 @@ signals:
     void uploadComplete();
     void uploadFailed(const QString &error);
     void syncSound(int index, const QString &path, const QString &name);
+    void remotePlay(int index);
 
 private slots:
     void handleReadyRead();
