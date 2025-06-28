@@ -187,7 +187,7 @@ void JoinSession::uploadSound(int index, const QString &filePath) {
             return;
         }
 
-        uploadTimer->start(10000); // 10 secondes timeout
+        uploadTimer->start(30000); // 30 seconds timeout for large audio files
         qDebug() << "Upload started, timeout timer running...";
     } else {
         emit uploadFailed("Not connected to host");

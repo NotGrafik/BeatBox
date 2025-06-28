@@ -66,7 +66,7 @@ void PadPage::handleUpload(int index) {
     QString filePath = QFileDialog::getOpenFileName(this, "Choose a sound file");
     if (!filePath.isEmpty()) {
         setPadLabel(index, "Loading...");
-        uploadTimer->start(10000); // 10 secondes timeout
+        uploadTimer->start(30000); // 30 seconds timeout for large audio files
 
         // Emit signal to MainWindow to handle the upload
         emit uploadSoundRequested(index, filePath);
@@ -86,4 +86,15 @@ void PadPage::setPadLabel(int index, const QString &label) {
 void PadPage::onSoundReady(int index, const QString& name) {
     uploadTimer->stop();
     setPadLabel(index, name);
+}
+
+void PadPage::handleUploadTimeout() {
+    qDebug() << "Upload timed out - resetting pad state";
+    // Reset all pads that might be in loading state
+    for (int i = 0; i < padButtons.size(); ++i) {
+        QString currentText = static_cast<QToolButton*>(padButtons[i])->text();
+        if (currentText == "Loading...") {
+            setPadLabel(i, QString("Pad %1").arg(i + 1));
+        }
+    }
 }
